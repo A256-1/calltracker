@@ -5,6 +5,8 @@ struct ContentView: View {
     @AppStorage("serverURL") private var serverURL = ""
     @AppStorage("apiKey") private var apiKey = "deneme123"
     @AppStorage("employee") private var employee = ""
+    @AppStorage("keepAlive") private var keepAlive = false
+    @ObservedObject private var keep = KeepAlive.shared
 
     private func label(_ type: String) -> String {
         switch type {
@@ -27,6 +29,14 @@ struct ContentView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                     TextField("Personel adı", text: $employee)
+                }
+                Section(header: Text("Arka plan"),
+                        footer: Text("Açıkken uygulama arka planda canlı kalır ve kilitli ekranda da aramaları görür. Konum bilgisi kullanılmaz, kaydedilmez, gönderilmez; mavi konum çubuğu bunun açık olduğunu gösterir. Pil kullanımı biraz artar.")) {
+                    Toggle("Arka planda çalış", isOn: $keepAlive)
+                        .onChange(of: keepAlive) { on in
+                            if on { KeepAlive.shared.enable() } else { KeepAlive.shared.disable() }
+                        }
+                    Text("Durum: \(keep.status)").font(.footnote)
                 }
                 Section(header: Text("Durum"),
                         footer: Text("Bu uygulama sadece aramanın cevaplanıp cevaplanmadığını ve süresini gönderir. Arayan numarası ve konuşma içeriği gönderilmez.")) {
