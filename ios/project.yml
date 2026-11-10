@@ -1,0 +1,20 @@
+name: CallTracker
+options:
+  bundleIdPrefix: com.example
+  deploymentTarget:
+    iOS: "16.0"
+targets:
+  CallTracker:
+    type: application
+    platform: iOS
+    sources: [CallTracker]
+    info:
+      path: CallTracker/Info.plist
+      properties:
+        CFBundleDisplayName: Çağrı Takip
+        UILaunchScreen: {}
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.calltracker   # kendi benzersiz adınla değiştir
+        SWIFT_VERSION: "5.0"
+        GENERATE_INFOPLIST_FILE: NO
