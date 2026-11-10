@@ -18,6 +18,7 @@ final class CallMonitor: NSObject, ObservableObject, CXCallObserverDelegate {
 
     @Published var history: [CallEvent] = []
     @Published var pending: Int = 0
+    @Published var lastStatus: String = "Henüz gönderim yok"
 
     private let observer = CXCallObserver()
     private var started: [UUID: Date] = [:]
@@ -83,12 +84,19 @@ final class CallMonitor: NSObject, ObservableObject, CXCallObserverDelegate {
     // MARK: Sunucuya gonderme
     func flush() {
         let d = UserDefaults.standard
-        guard !queue.isEmpty,
-              let base = d.string(forKey: "serverURL"), !base.isEmpty,
-              var comps = URLComponents(string: base.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/event")
-        else { return }
-        comps.queryItems = [URLQueryItem(name: "key", value: d.string(forKey: "apiKey") ?? "")]
-        guard let url = comps.url else { return }
+        guard !queue.isEmpty else { return }
+        let ws = CharacterSet.whitespacesAndNewlines
+        let base = (d.string(forKey: "serverURL") ?? "").trimmingCharacters(in: ws)
+                     .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        // @AppStorage varsayilani diske yazilmaz; bos kalirsa varsayilan anahtari kullan
+        let key = (d.string(forKey: "apiKey") ?? "deneme123").trimmingCharacters(in: ws)
+        guard !base.isEmpty else { lastStatus = "Sunucu adresi boş"; return }
+        guard var comps = URLComponents(string: base + "/event") else {
+            lastStatus = "Adres geçersiz: \(base)"; return
+        }
+        comps.queryItems = [URLQueryItem(name: "key", value: key)]
+        guard let url = comps.url else { lastStatus = "Adres geçersiz"; return }
+        lastStatus = "Gönderiliyor..."
 
         let batch = queue
         var req = URLRequest(url: url, timeoutInterval: 20)
@@ -103,12 +111,18 @@ final class CallMonitor: NSObject, ObservableObject, CXCallObserverDelegate {
         }
         URLSession.shared.dataTask(with: req) { [weak self] _, resp, err in
             DispatchQueue.main.async {
-                if let self = self, err == nil,
-                   let http = resp as? HTTPURLResponse, http.statusCode == 200 {
-                    let sent = Set(batch.map { $0.uuid })
-                    self.queue.removeAll { sent.contains($0.uuid) }
-                    self.save(self.queue, "queue")
-                    self.pending = self.queue.count
+                if let err = err {
+                    self?.lastStatus = "Hata: \(err.localizedDescription)"
+                } else if let http = resp as? HTTPURLResponse {
+                    if http.statusCode == 200, let self = self {
+                        let sent = Set(batch.map { $0.uuid })
+                        self.queue.removeAll { sent.contains($0.uuid) }
+                        self.save(self.queue, "queue")
+                        self.pending = self.queue.count
+                        self.lastStatus = "Gönderildi ✓"
+                    } else {
+                        self?.lastStatus = "Sunucu HTTP \(http.statusCode) döndü"
+                    }
                 }
                 if bg != .invalid { UIApplication.shared.endBackgroundTask(bg) }
             }
