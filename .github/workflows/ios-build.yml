@@ -1,0 +1,33 @@
+name: ios-build
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: XcodeGen kur ve proje uret
+        run: |
+          brew install xcodegen
+          cd ios && xcodegen generate
+
+      - name: Gercek cihaz icin imzasiz derle
+        run: |
+          cd ios
+          xcodebuild -project CallTracker.xcodeproj -scheme CallTracker \
+            -sdk iphoneos -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: .ipa paketle (imzasiz)
+        run: |
+          cd ios
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/CallTracker.app Payload/
+          zip -qr CallTracker.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CallTracker-ipa
+          path: ios/CallTracker.ipa
